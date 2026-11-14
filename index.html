@@ -58,10 +58,10 @@
     padding: 14px 10px 16px;
     display: flex; flex-direction: column; align-items: center; gap: 12px;
   }
-  .lane[data-d="1"]  { --c: var(--chip-1);  --ins: var(--ins-1);  --num: var(--num-1); }
-  .lane[data-d="5"]  { --c: var(--chip-5);  --ins: var(--ins-5);  --num: var(--num-5); }
-  .lane[data-d="10"] { --c: var(--chip-10); --ins: var(--ins-10); --num: var(--num-10); }
-  .lane[data-d="25"] { --c: var(--chip-25); --ins: var(--ins-25); --num: var(--num-25); }
+  [data-d="1"]  { --c: var(--chip-1);  --ins: var(--ins-1);  --num: var(--num-1); }
+  [data-d="5"]  { --c: var(--chip-5);  --ins: var(--ins-5);  --num: var(--num-5); }
+  [data-d="10"] { --c: var(--chip-10); --ins: var(--ins-10); --num: var(--num-10); }
+  [data-d="25"] { --c: var(--chip-25); --ins: var(--ins-25); --num: var(--num-25); }
 
   .stack { height: 124px; display: flex; flex-direction: column-reverse; align-items: center; }
   .disc {
@@ -107,6 +107,37 @@
     font: 500 14px var(--body); padding: 8px 16px; border-radius: 999px; cursor: pointer;
   }
   .reset.armed { border-color: var(--danger); color: var(--danger); }
+  .topot {
+    border: 1px solid var(--gold); background: transparent; color: var(--gold);
+    font: 700 14px var(--body); padding: 8px 12px; border-radius: 999px; cursor: pointer;
+  }
+  .topot:disabled, .take:disabled { opacity: .35; cursor: default; }
+  .pot {
+    border: 2px solid var(--gold); border-radius: 18px; padding: 16px 18px 18px;
+    background: rgba(10, 38, 28, .55); display: flex; flex-direction: column; gap: 14px;
+  }
+  .pot-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .pot-head h2 { margin: 0; font: 500 13px var(--body); letter-spacing: .14em; text-transform: uppercase; color: var(--gold); }
+  .pot-total { font: 400 40px/1 var(--display); color: var(--gold); font-variant-numeric: tabular-nums; }
+  .pot-chips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; justify-items: center; }
+  .mini {
+    width: 64px; aspect-ratio: 1; border-radius: 50%; border: 0; padding: 0; cursor: pointer; position: relative;
+    display: grid; place-items: center;
+    background: repeating-conic-gradient(var(--c) 0 30deg, var(--ins) 30deg 45deg);
+    box-shadow: 0 4px 0 var(--shadow);
+  }
+  .mini::before { content: ""; position: absolute; inset: 8px; border-radius: 50%; background: var(--c); border: 2px dashed var(--ins); }
+  .mini span { position: relative; font: 400 20px/1 var(--display); color: var(--num); }
+  .mini:disabled { opacity: .35; cursor: default; }
+  .mini:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 var(--shadow); }
+  .badge {
+    position: absolute; top: -6px; right: -6px; z-index: 1; min-width: 26px; height: 26px; padding: 0 6px;
+    border-radius: 13px; background: var(--ink); color: var(--rail); font: 700 14px/26px var(--body);
+    text-align: center; font-style: normal; font-variant-numeric: tabular-nums;
+  }
+  .pot-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .pot-actions p { margin: 0; color: var(--ink-soft); font-size: 14px; }
+  .take { border-color: var(--gold); color: var(--gold); font-weight: 700; }
   .note { margin: 0; text-align: center; color: var(--ink-soft); font-size: 14px; }
 
   :focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
@@ -120,12 +151,21 @@
       <div class="total" id="total">0</div>
     </div>
     <div class="rail-side">
-      <div class="pieces"><b id="pieces">0</b> fiches sul tavolo</div>
+      <div class="pieces"><b id="pieces">0</b> fiches in mano</div>
       <button class="reset" id="reset" type="button">Azzera</button>
     </div>
   </section>
 
   <section class="lanes" id="lanes"></section>
+
+  <section class="pot" aria-label="Piatto">
+    <div class="pot-head"><h2>Piatto</h2><div class="pot-total" id="pot-total" aria-live="polite">0</div></div>
+    <div class="pot-chips" id="pot-chips"></div>
+    <div class="pot-actions">
+      <p>Tocca una fiche del piatto per riprenderla.</p>
+      <button class="reset take" id="take" type="button">Prendi il piatto</button>
+    </div>
+  </section>
 
   <p class="note" id="note">Tocca una fiche per aggiungerla alla pila. Usa − e + per correggere, oppure scrivi il numero.</p>
 </main>
@@ -136,19 +176,21 @@
   var KEY = "conta-fiches-v1";
   var MAX_DISCS = 15;
   var counts = { 1: 10, 5: 8, 10: 6, 25: 4 };   // example starting stack
+  var pot = { 1: 0, 5: 0, 10: 0, 25: 0 };
   var isExample = true;
 
   try {
     var saved = JSON.parse(localStorage.getItem(KEY));
     if (saved && typeof saved === "object") {
-      DEN.forEach(function (d) { counts[d] = clamp(saved[d]); });
+      var s = saved.stack || saved, p = saved.pot || {};
+      DEN.forEach(function (d) { counts[d] = clamp(s[d]); pot[d] = clamp(p[d]); });
       isExample = false;
     }
   } catch (e) {}
 
   function clamp(n) { n = Math.floor(Number(n)); return n > 0 ? Math.min(n, 9999) : 0; }
   function fmt(n) { return n.toLocaleString("it-IT"); }
-  function save() { try { localStorage.setItem(KEY, JSON.stringify(counts)); } catch (e) {} }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify({ stack: counts, pot: pot })); } catch (e) {} }
 
   var lanes = document.getElementById("lanes");
   var els = {};
@@ -164,18 +206,42 @@
         '<input id="count-' + d + '" type="number" inputmode="numeric" min="0" max="9999" aria-label="Numero di fiches da ' + d + '">' +
         '<button type="button" class="plus" aria-label="Aggiungi una fiche da ' + d + '">+</button>' +
       '</div>' +
-      '<div class="sub">= <b></b></div>';
+      '<div class="sub">= <b></b></div>' +
+      '<button type="button" class="topot" aria-label="Sposta una fiche da ' + d + ' nel piatto">→ Piatto</button>';
     lanes.appendChild(lane);
     var e = els[d] = {
       stack: lane.querySelector(".stack"), input: lane.querySelector("input"),
-      minus: lane.querySelector(".minus"), sub: lane.querySelector(".sub b")
+      minus: lane.querySelector(".minus"), sub: lane.querySelector(".sub b"), topot: lane.querySelector(".topot")
     };
     lane.querySelector(".chip").addEventListener("click", function () { set(d, counts[d] + 1); });
     lane.querySelector(".plus").addEventListener("click", function () { set(d, counts[d] + 1); });
     e.minus.addEventListener("click", function () { set(d, counts[d] - 1); });
+    e.topot.addEventListener("click", function () { move(d, 1); });
     e.input.addEventListener("input", function () { set(d, e.input.value, true); });
     e.input.addEventListener("blur", function () { e.input.value = counts[d]; });
   });
+
+  var potEls = {}, potBox = document.getElementById("pot-chips");
+  DEN.forEach(function (d) {
+    var b = document.createElement("button");
+    b.type = "button"; b.className = "mini"; b.dataset.d = d;
+    b.setAttribute("aria-label", "Riprendi una fiche da " + d + " dal piatto");
+    b.innerHTML = "<span>" + d + '</span><i class="badge"></i>';
+    b.addEventListener("click", function () { move(d, -1); });
+    potBox.appendChild(b);
+    potEls[d] = { btn: b, badge: b.querySelector(".badge") };
+  });
+  document.getElementById("take").addEventListener("click", function () {
+    DEN.forEach(function (d) { counts[d] += pot[d]; pot[d] = 0; });
+    isExample = false; save(); render();
+  });
+
+  function move(d, dir) {            // dir 1: stack -> piatto, dir -1: piatto -> stack
+    if (dir > 0 && counts[d] > 0) { counts[d]--; pot[d]++; }
+    else if (dir < 0 && pot[d] > 0) { pot[d]--; counts[d]++; }
+    else return;
+    isExample = false; save(); render();
+  }
 
   function set(d, n, typing) {
     counts[d] = clamp(n);
@@ -192,16 +258,25 @@
       if (skipInput !== d) e.input.value = c;
       e.minus.disabled = c === 0;
       e.sub.textContent = fmt(c * d);
+      e.topot.disabled = c === 0;
       var shown = Math.min(c, MAX_DISCS), html = "";
       for (var i = 0; i < shown; i++) html += '<div class="disc"></div>';
       if (c > MAX_DISCS) html += '<div class="more">+' + (c - MAX_DISCS) + '</div>';
       e.stack.innerHTML = html;
     });
+    var potTotal = 0;
+    DEN.forEach(function (d) {
+      potTotal += pot[d] * d;
+      potEls[d].badge.textContent = pot[d];
+      potEls[d].btn.disabled = pot[d] === 0;
+    });
+    document.getElementById("pot-total").textContent = fmt(potTotal);
+    document.getElementById("take").disabled = potTotal === 0;
     document.getElementById("total").textContent = fmt(total);
     document.getElementById("pieces").textContent = fmt(pieces);
     document.getElementById("note").textContent = isExample
       ? "Questa è una pila di esempio: tocca Azzera per partire da zero, poi tocca le fiches per contarle."
-      : "Tocca una fiche per aggiungerla alla pila. Usa − e + per correggere, oppure scrivi il numero.";
+      : "Tocca una fiche per aggiungerla alla pila, poi usa → Piatto per puntarla. Usa − e + per correggere.";
   }
 
   var reset = document.getElementById("reset"), timer;
@@ -209,7 +284,7 @@
   reset.addEventListener("click", function () {
     clearTimeout(timer);
     if (reset.classList.contains("armed")) {
-      DEN.forEach(function (d) { counts[d] = 0; });
+      DEN.forEach(function (d) { counts[d] = 0; pot[d] = 0; });
       isExample = false; save(); render(); disarm();
     } else {
       reset.classList.add("armed");
