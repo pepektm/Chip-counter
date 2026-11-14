@@ -1,0 +1,223 @@
+<title>Conta Fiches Poker</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=DM+Sans:wght@400;500;700&display=swap">
+<style>
+  /* Layout: a felt table. Total on the rail at the top, four chip lanes below (2x2 on phones), each lane a growing stack over its chip. */
+  :root {
+    color-scheme: dark;
+    --felt: #14523c;
+    --felt-deep: #0e3b2b;
+    --rail: #0a261c;
+    --line: #2c7a5c;
+    --ink: #f4efe2;
+    --ink-soft: #b5cfc1;
+    --gold: #e8b84a;
+    --danger: #e0685f;
+    --chip-1: #f1ece0;  --ins-1: #27407a;  --num-1: #1c1c1c;
+    --chip-5: #c8322b;  --ins-5: #f7f2e6;  --num-5: #ffffff;
+    --chip-10: #2553a8; --ins-10: #f7f2e6; --num-10: #ffffff;
+    --chip-25: #2aa35b; --ins-25: #f7f2e6; --num-25: #ffffff;
+    --shadow: rgba(0, 0, 0, .38);
+    --display: "Alfa Slab One", "Rockwell", Georgia, serif;
+    --body: "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: radial-gradient(ellipse at 50% 0%, var(--felt) 0%, var(--felt-deep) 75%) fixed var(--felt-deep);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 16px;
+    min-height: 100%;
+    padding-block: 24px 40px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  main { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+
+  .rail {
+    background: var(--rail);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 18px 22px;
+    display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px;
+  }
+  .rail h1 {
+    margin: 0; font: 500 13px var(--body); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-soft);
+  }
+  .total { font: 400 clamp(56px, 16vw, 88px)/1 var(--display); color: var(--gold); font-variant-numeric: tabular-nums; }
+  .rail-side { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+  .pieces { color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+  .pieces b { color: var(--ink); }
+
+  .lanes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  @media (max-width: 620px) { .lanes { grid-template-columns: repeat(2, 1fr); } }
+  .lane {
+    min-width: 0;
+    border: 1px dashed var(--line);
+    border-radius: 18px;
+    padding: 14px 10px 16px;
+    display: flex; flex-direction: column; align-items: center; gap: 12px;
+  }
+  .lane[data-d="1"]  { --c: var(--chip-1);  --ins: var(--ins-1);  --num: var(--num-1); }
+  .lane[data-d="5"]  { --c: var(--chip-5);  --ins: var(--ins-5);  --num: var(--num-5); }
+  .lane[data-d="10"] { --c: var(--chip-10); --ins: var(--ins-10); --num: var(--num-10); }
+  .lane[data-d="25"] { --c: var(--chip-25); --ins: var(--ins-25); --num: var(--num-25); }
+
+  .stack { height: 124px; display: flex; flex-direction: column-reverse; align-items: center; }
+  .disc {
+    width: 70px; height: 7px; border-radius: 3px; flex: none;
+    background: repeating-linear-gradient(90deg, var(--c) 0 13px, var(--ins) 13px 19px);
+    box-shadow: inset 0 -2px 0 var(--shadow);
+  }
+  .more { font-size: 12px; color: var(--ink-soft); padding-bottom: 4px; font-variant-numeric: tabular-nums; }
+
+  .chip {
+    width: 88px; aspect-ratio: 1; border-radius: 50%; border: 0; padding: 0; cursor: pointer;
+    position: relative; display: grid; place-items: center;
+    background: repeating-conic-gradient(var(--c) 0 30deg, var(--ins) 30deg 45deg);
+    box-shadow: 0 5px 0 var(--shadow);
+    transition: transform .08s ease, box-shadow .08s ease;
+  }
+  .chip::before {
+    content: ""; position: absolute; inset: 11px; border-radius: 50%;
+    background: var(--c); border: 2px dashed var(--ins);
+  }
+  .chip span { position: relative; font: 400 30px/1 var(--display); color: var(--num); }
+  .chip:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--shadow); }
+
+  .step { display: flex; align-items: center; gap: 6px; }
+  .step button {
+    width: 40px; height: 40px; border-radius: 50%; flex: none;
+    border: 1px solid var(--line); background: var(--rail); color: var(--ink);
+    font: 700 20px/1 var(--body); cursor: pointer;
+  }
+  .step button:disabled { opacity: .35; cursor: default; }
+  .step input {
+    width: 58px; height: 40px; min-width: 0; text-align: center;
+    border: 1px solid var(--line); border-radius: 10px; background: var(--felt-deep); color: var(--ink);
+    font: 700 18px var(--body); font-variant-numeric: tabular-nums;
+    -moz-appearance: textfield; appearance: textfield;
+  }
+  .step input::-webkit-outer-spin-button, .step input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .sub { color: var(--ink-soft); font-size: 14px; font-variant-numeric: tabular-nums; }
+  .sub b { color: var(--ink); font-size: 16px; }
+
+  .reset {
+    border: 1px solid var(--line); background: transparent; color: var(--ink);
+    font: 500 14px var(--body); padding: 8px 16px; border-radius: 999px; cursor: pointer;
+  }
+  .reset.armed { border-color: var(--danger); color: var(--danger); }
+  .note { margin: 0; text-align: center; color: var(--ink-soft); font-size: 14px; }
+
+  :focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+  @media (prefers-reduced-motion: reduce) { .chip { transition: none; } }
+</style>
+
+<main>
+  <section class="rail" aria-live="polite">
+    <div>
+      <h1>Valore totale</h1>
+      <div class="total" id="total">0</div>
+    </div>
+    <div class="rail-side">
+      <div class="pieces"><b id="pieces">0</b> fiches sul tavolo</div>
+      <button class="reset" id="reset" type="button">Azzera</button>
+    </div>
+  </section>
+
+  <section class="lanes" id="lanes"></section>
+
+  <p class="note" id="note">Tocca una fiche per aggiungerla alla pila. Usa − e + per correggere, oppure scrivi il numero.</p>
+</main>
+
+<script>
+(function () {
+  var DEN = [1, 5, 10, 25];
+  var KEY = "conta-fiches-v1";
+  var MAX_DISCS = 15;
+  var counts = { 1: 10, 5: 8, 10: 6, 25: 4 };   // example starting stack
+  var isExample = true;
+
+  try {
+    var saved = JSON.parse(localStorage.getItem(KEY));
+    if (saved && typeof saved === "object") {
+      DEN.forEach(function (d) { counts[d] = clamp(saved[d]); });
+      isExample = false;
+    }
+  } catch (e) {}
+
+  function clamp(n) { n = Math.floor(Number(n)); return n > 0 ? Math.min(n, 9999) : 0; }
+  function fmt(n) { return n.toLocaleString("it-IT"); }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(counts)); } catch (e) {} }
+
+  var lanes = document.getElementById("lanes");
+  var els = {};
+  DEN.forEach(function (d) {
+    var lane = document.createElement("div");
+    lane.className = "lane";
+    lane.dataset.d = d;
+    lane.innerHTML =
+      '<div class="stack" aria-hidden="true"></div>' +
+      '<button class="chip" type="button" aria-label="Aggiungi una fiche da ' + d + '"><span>' + d + '</span></button>' +
+      '<div class="step">' +
+        '<button type="button" class="minus" aria-label="Togli una fiche da ' + d + '">−</button>' +
+        '<input id="count-' + d + '" type="number" inputmode="numeric" min="0" max="9999" aria-label="Numero di fiches da ' + d + '">' +
+        '<button type="button" class="plus" aria-label="Aggiungi una fiche da ' + d + '">+</button>' +
+      '</div>' +
+      '<div class="sub">= <b></b></div>';
+    lanes.appendChild(lane);
+    var e = els[d] = {
+      stack: lane.querySelector(".stack"), input: lane.querySelector("input"),
+      minus: lane.querySelector(".minus"), sub: lane.querySelector(".sub b")
+    };
+    lane.querySelector(".chip").addEventListener("click", function () { set(d, counts[d] + 1); });
+    lane.querySelector(".plus").addEventListener("click", function () { set(d, counts[d] + 1); });
+    e.minus.addEventListener("click", function () { set(d, counts[d] - 1); });
+    e.input.addEventListener("input", function () { set(d, e.input.value, true); });
+    e.input.addEventListener("blur", function () { e.input.value = counts[d]; });
+  });
+
+  function set(d, n, typing) {
+    counts[d] = clamp(n);
+    isExample = false;
+    save();
+    render(typing ? d : null);
+  }
+
+  function render(skipInput) {
+    var total = 0, pieces = 0;
+    DEN.forEach(function (d) {
+      var c = counts[d], e = els[d];
+      total += c * d; pieces += c;
+      if (skipInput !== d) e.input.value = c;
+      e.minus.disabled = c === 0;
+      e.sub.textContent = fmt(c * d);
+      var shown = Math.min(c, MAX_DISCS), html = "";
+      for (var i = 0; i < shown; i++) html += '<div class="disc"></div>';
+      if (c > MAX_DISCS) html += '<div class="more">+' + (c - MAX_DISCS) + '</div>';
+      e.stack.innerHTML = html;
+    });
+    document.getElementById("total").textContent = fmt(total);
+    document.getElementById("pieces").textContent = fmt(pieces);
+    document.getElementById("note").textContent = isExample
+      ? "Questa è una pila di esempio: tocca Azzera per partire da zero, poi tocca le fiches per contarle."
+      : "Tocca una fiche per aggiungerla alla pila. Usa − e + per correggere, oppure scrivi il numero.";
+  }
+
+  var reset = document.getElementById("reset"), timer;
+  function disarm() { reset.classList.remove("armed"); reset.textContent = "Azzera"; }
+  reset.addEventListener("click", function () {
+    clearTimeout(timer);
+    if (reset.classList.contains("armed")) {
+      DEN.forEach(function (d) { counts[d] = 0; });
+      isExample = false; save(); render(); disarm();
+    } else {
+      reset.classList.add("armed");
+      reset.textContent = "Conferma: azzera tutto";
+      timer = setTimeout(disarm, 3000);
+    }
+  });
+
+  render();
+})();
+</script>
